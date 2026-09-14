@@ -134,14 +134,15 @@
     .barline.dbl { width: 5px; background: linear-gradient(to right, #222 0 2px, transparent 2px 3px, #222 3px 5px); }
     .tabnote {
       position: absolute; z-index: 2; transform: translate(-50%, -50%);
-      min-width: 16px; text-align: center;
-      font: 800 12px/1 ui-sans-serif, system-ui; color: #111;
-      background: #f4f1ea; padding: 0 2px; border-radius: 2px;
+      min-width: 22px; text-align: center;
+      font: 800 16px/1 ui-sans-serif, system-ui; color: #111;
+      background: #f4f1ea; padding: 1px 3px; border-radius: 4px;
     }
     .tabnote.cur {
       background: #c9a227; color: #1a1408;
-      box-shadow: 0 0 0 2px #c9a227; z-index: 4;
+      box-shadow: 0 0 0 3px #c9a227; z-index: 4; font-size: 18px;
     }
+    .note.now { transform: scale(1.35); z-index: 5; box-shadow: 0 0 0 3px #fff, 0 0 0 6px #c9a227; }
     .tabnote.played { color: #7a756c; }
     .playhead {
       position: absolute; top: -6px; bottom: -6px; width: 3px;
@@ -167,7 +168,7 @@
 <body>
   <header>
     <h1>Pentatonic <span>Plus Two</span> Practice Studio</h1>
-    <p class="lead">Upload a backing track. Analyze key and tempo, generate a Pentatonic Plus Two practice line, and follow it on the neck and tab.</p>
+    <p class="lead">Upload a backing track. The app finds the key and writes a solo. Watch the big note on the neck and the gold number on the staff.</p>
     <p class="stat" style="margin:0 0 8px"><a href="learn-solo.html" style="color:var(--pent)">Learn a recorded solo (MIDI / tab) →</a></p>
   </header>
   <div class="wrap">
@@ -177,14 +178,14 @@
           <input id="file" type="file" accept="audio/*" />
         </label>
         <span class="stat" id="fileName">No file yet</span>
-        <button class="primary" id="analyzeBtn" disabled>Analyze track</button>
-        <button class="ghost" id="genBtn" disabled>Generate solo</button>
-        <button class="ghost" id="playSoloBtn" disabled>Play track + solo</button>
+        <button class="primary" id="playSoloBtn" disabled>Play</button>
+        <button class="ghost" id="genBtn" disabled>New solo</button>
+        <button class="ghost" id="analyzeBtn" disabled>Re-analyze</button>
         <button class="ghost" id="stopBtn" disabled>Stop</button>
         <button class="ghost" id="saveBtn" disabled>Save track</button>
       </div>
       <audio id="player" controls></audio>
-      <p class="status" id="status">Choose an MP3, WAV, or M4A backing track. Saved tracks stay in this browser.</p>
+      <p class="status" id="status">Upload a backing track. Analysis and a solo start automatically.</p>
       <div class="lib" id="lib"></div>
     </div>
 
@@ -324,6 +325,7 @@ let solo = [];
 let audioCtx = null;
 let playing = false;
 let lastFired = -1;
+let currentPlay = -1;
 let trackDur = 0;
 let activeBox = 1;
 let viewBox = "all";
@@ -427,7 +429,7 @@ $("file").addEventListener("change", async ev => {
   try {
     await loadFromBlob(f, f.name, f.type || "audio/mpeg");
     await saveTrack(currentName, currentType, currentBlob);
-    $("status").textContent = "Loaded and saved “" + f.name + "”. Analyze, then generate.";
+    /* keep pipeline status */
     await refreshLibrary();
   } catch (err) {
     $("status").textContent = "Track selected, but audio decode failed. You can still Save. Try WAV/MP3. (" + (err && err.message ? err.message : err) + ")";
@@ -533,7 +535,7 @@ async function loadFromBlob(blob, name, type) {
   $("saveBtn").disabled = false;
   $("genBtn").disabled = true;
   $("playSoloBtn").disabled = true;
-  $("status").textContent = "Loaded “" + name + "”. Analyze, then generate.";
+  $("status").textContent = "Loaded “" + name + "”. Analyzing…";
   try {
     const ctx = getCtx();
     if (ctx.state === "suspended") await ctx.resume();
@@ -541,43 +543,63 @@ async function loadFromBlob(blob, name, type) {
     audioBuf = await ctx.decodeAudioData(buf.slice(0));
     trackDur = audioBuf.duration;
     $("durLab").textContent = fmtTime(trackDur);
+    $("status").textContent = "Finding key and writing a solo…";
+    runTrackPipeline();
   } catch (err) {
     $("status").textContent = "File is ready to Save, but this browser could not decode it for analysis. Try MP3 or WAV.";
     throw err;
   }
 }
 
-refreshLibrary();
+async function ensureAudioBuf() {
+  const ctx = getCtx();
+  if (ctx.state === "suspended") await ctx.resume();
+  if (audioBuf) return audioBuf;
+  if (!currentBlob) throw new Error("No track loaded.");
+  const buf = await currentBlob.arrayBuffer();
+  audioBuf = await ctx.decodeAudioData(buf.slice(0));
+  trackDur = audioBuf.duration;
+  if ($("durLab")) $("durLab").textContent = fmtTime(trackDur);
+  return audioBuf;
+}
 
-$("analyzeBtn").addEventListener("click", () => {
-  if (!audioBuf) return;
-  $("status").textContent = "Analyzing…";
-  setTimeout(() => {
+async function runTrackPipeline() {
+  $("status").textContent = "Analyzing the track…";
+  try {
+    await ensureAudioBuf();
     const bpm = estimateBpm(audioBuf);
     const key = estimateKey(audioBuf);
     $("bpmIn").value = bpm;
     $("keySel").value = key;
     rootPc = NAMES.indexOf(key);
     $("genBtn").disabled = false;
-    $("status").textContent = "Estimate: " + key + " minor @ " + bpm + " BPM · " +
-      fmtTime(trackDur) + " · ~" + barsForTrack(bpm) + " bars.";
-    renderBoard();
-  }, 20);
-});
+    writeSolo();
+  } catch (err) {
+    $("status").textContent = "Analyze failed on this file. Try MP3 or WAV. " +
+      (err && err.message ? err.message : "");
+  }
+}
 
-$("genBtn").addEventListener("click", () => {
+function writeSolo() {
   solo = generateSolo();
   lastFired = -1;
+  currentPlay = -1;
   drawTab(-1);
-  $("playSoloBtn").disabled = false;
+  $("playSoloBtn").disabled = !solo.length;
   const lastT = solo.length ? solo[solo.length - 1].t + solo[solo.length - 1].dur : 0;
-  $("coverLab").textContent = fmtTime(lastT) + (trackDur ? " / " + fmtTime(trackDur) : "");
-  $("soloMeta").textContent = solo.length + " notes · " + countBars() + " bars · travels boxes 1–5 · " +
-    $("keySel").value + " " + modeName();
-  $("status").textContent = "Solo ready across the neck. Play and watch the gold tab cell.";
-  $("nowline").innerHTML = "Ready — press Play track + solo.";
+  if ($("coverLab")) $("coverLab").textContent = fmtTime(lastT) + (trackDur ? " / " + fmtTime(trackDur) : "");
+  if ($("soloMeta")) $("soloMeta").textContent = solo.length + " notes · " +
+    $("keySel").value + " " + modeName() + " @ " + $("bpmIn").value + " BPM";
+  $("status").textContent = "Solo ready in " + $("keySel").value + " at " + $("bpmIn").value +
+    " BPM. Press Play and follow the gold note.";
+  if ($("nowline")) $("nowline").textContent = "Gold = play now · dim = next";
   renderBoard();
-});
+}
+
+refreshLibrary();
+
+$("analyzeBtn").addEventListener("click", runTrackPipeline);
+$("genBtn").addEventListener("click", writeSolo);
 
 if ($("midiFile")) $("midiFile").addEventListener("change", async ev => {
   const f = ev.target.files[0];
@@ -939,14 +961,20 @@ function fretBand() {
 }
 
 function uniqueSoloDots() {
-  const map = new Map();
-  solo.forEach(n => {
-    const k = n.si + "-" + n.fret;
-    if (!map.has(k)) map.set(k, {
-      si: n.si, fret: n.fret, midi: n.midi, name: n.name, kind: n.kind || "pent"
-    });
-  });
-  return [...map.values()];
+  const i = currentPlay >= 0 ? currentPlay : lastFired;
+  const out = [];
+  const add = (n, kind) => {
+    if (!n) return;
+    out.push({ si: n.si, fret: n.fret, midi: n.midi, name: n.name, kind: kind || n.kind || "pent" });
+  };
+  if (i >= 0) {
+    add(solo[i], "root");
+    add(solo[i + 1], "add");
+  } else if (solo[0]) {
+    add(solo[0], "root");
+    add(solo[1], "add");
+  }
+  return out;
 }
 
 function renderBoard() {
@@ -1231,11 +1259,10 @@ function follow(i) {
   }
   const n = solo[i];
   if (!n) return;
-  if (n.box !== activeBox) {
-    activeBox = n.box;
-    $("boxLab").textContent = "Box " + activeBox;
-  }
-  document.querySelectorAll(".note.now").forEach(el => el.classList.remove("now"));
+  currentPlay = i;
+  activeBox = n.box;
+  if ($("boxLab")) $("boxLab").textContent = "Box " + (n.box || "—");
+  renderBoard();
   const dot = document.getElementById("n-" + n.si + "-" + n.fret);
   if (dot) dot.classList.add("now");
   $("nowline").innerHTML = "<em>Bar " + (n.bar + 1) + " · Box " + n.box + "</em>  —  " +
