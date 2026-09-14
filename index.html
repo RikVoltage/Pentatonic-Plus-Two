@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pentatonic Plus Two — Practice Studio</title>
+  <title>Practice Studio Plus</title>
   <style>
     :root {
       --bg: #0c0d10; --bg2: #14161c; --bg3: #1c1f28; --line: #2a2e3a;
@@ -167,7 +167,7 @@
 </head>
 <body>
   <header>
-    <h1>Pentatonic <span>Plus Two</span> Practice Studio</h1>
+    <h1>Practice Studio <span>Plus</span></h1>
     <p class="lead">Upload a backing track. The app finds the key and writes a solo. Watch the big note on the neck and the gold number on the staff.</p>
     <p class="stat" style="margin:0 0 8px"><a href="learn-solo.html" style="color:var(--pent)">Learn a recorded solo (MIDI / tab) →</a></p>
   </header>
@@ -1047,9 +1047,9 @@ function ping(midi, dur = 0.32) {
   const f = ctx.createBiquadFilter();
   o.type = "sawtooth";
   o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
-  f.type = "lowpass"; f.frequency.value = 1700;
+  f.type = "lowpass"; f.frequency.value = 2800;
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.11, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.38, t + 0.018);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(f).connect(g).connect(ctx.destination);
   o.start(t); o.stop(t + dur + 0.05);
