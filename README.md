@@ -1,3 +1,3 @@
 # Practice Studio Plus
 
-https://rikvoltage.github.io/Pentatonic-Plus-Two/
+https://rikvoltage.github.io/Practice-Studio-Plus/
