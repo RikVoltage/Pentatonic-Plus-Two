@@ -97,28 +97,58 @@
       overflow: auto;
     }
     .stage:fullscreen .tabwrap { max-height: calc(100vh - 320px); }
-    .fs-pane:fullscreen .tabwrap { max-height: calc(100vh - 80px); }
+    .fs-pane:fullscreen .tabwrap { max-height: calc(100vh - 140px); }
     .fs-pane:fullscreen .fretboard { min-width: 100%; }
+    .stage:fullscreen #transport,
+    .fs-pane:fullscreen #transport {
+      position: sticky; top: 0; z-index: 12;
+      background: #0c0d10; padding: 8px 0 12px;
+    }
     .fs-pane { border-radius: 10px; }
     .fs-only { display: none; }
     .fs-pane:fullscreen > .fs-only,
     .stage:fullscreen .stage-exit { display: flex; }
     .tabwrap {
-      overflow: auto; max-height: 220px; background: #0e1014;
-      border-radius: 10px; padding: 12px; scroll-behavior: smooth;
+      overflow: auto; max-height: 280px; background: #f4f1ea;
+      border-radius: 10px; padding: 14px 12px 18px; scroll-behavior: smooth;
     }
-    .tab {
-      font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
-      line-height: 1.4; color: #8d8a84; white-space: pre;
+    .tab { color: #1a1a1a; }
+    .sys { margin-bottom: 22px; }
+    .sys .lab { color: #4a6fa5; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+    .staffrow { display: flex; align-items: stretch; }
+    .tabclef {
+      width: 28px; display: flex; flex-direction: column; justify-content: center;
+      font: 800 11px/1.15 ui-sans-serif, system-ui; color: #222; letter-spacing: .04em;
     }
-    .sys { margin-bottom: 16px; }
-    .sys .lab { color: #6a6e78; font-size: 11px; margin-bottom: 2px; }
+    .staff {
+      position: relative; flex: 1; height: 108px;
+      background: repeating-linear-gradient(
+        to bottom, #2a2a2a 0 1px, transparent 1px 18px
+      );
+      background-size: 100% 18px;
+      border-left: 2px solid #222; border-right: 2px solid #222;
+    }
+    .barline {
+      position: absolute; top: 0; bottom: 0; width: 2px; background: #222; z-index: 1;
+    }
+    .barline.dbl { width: 5px; background: linear-gradient(to right, #222 0 2px, transparent 2px 3px, #222 3px 5px); }
+    .tabnote {
+      position: absolute; z-index: 2; transform: translate(-50%, -50%);
+      min-width: 16px; text-align: center;
+      font: 800 12px/1 ui-sans-serif, system-ui; color: #111;
+      background: #f4f1ea; padding: 0 2px; border-radius: 2px;
+    }
+    .tabnote.cur {
+      background: #c9a227; color: #1a1408;
+      box-shadow: 0 0 0 2px #c9a227; z-index: 4;
+    }
+    .tabnote.played { color: #7a756c; }
+    .playhead {
+      position: absolute; top: -6px; bottom: -6px; width: 3px;
+      background: #3b82f6; border-radius: 2px; z-index: 3; display: none;
+    }
+    .playhead.on { display: block; }
     .tok { color: #c7c3bb; }
-    .tok.cur {
-      background: #c9a227; color: #1a1408; border-radius: 3px;
-      padding: 0 1px; box-shadow: 0 0 0 1px #c9a227;
-    }
-    .tok.played { color: #6e6b66; }
     ul.tips { padding-left: 18px; color: #c9c7c2; font-size: 14px; }
     ul.tips li { margin: 6px 0; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -131,6 +161,7 @@
     }
     .lib-item button { padding: 5px 8px; }
     .lib-item .nm { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .scrub { flex: 1; min-width: 140px; accent-color: #c9a227; height: 6px; }
   </style>
 </head>
 <body>
@@ -198,6 +229,21 @@
           <button class="ghost stage-exit fs-close" type="button" id="fsExit" hidden>Exit fullscreen</button>
         </div>
       </div>
+      <div id="transportHome">
+      <div class="row" id="transport" style="margin-bottom:8px">
+        <button class="primary" type="button" id="pauseBtn">Pause</button>
+        <label class="stat">Speed
+          <select id="speedSel">
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1.25×</option>
+          </select>
+        </label>
+        <span class="stat" id="scrubTime">0:00 / 0:00</span>
+        <input class="scrub" id="scrub" type="range" min="0" max="1000" value="0" step="1" />
+      </div>
+      </div>
       <div class="row" style="margin-bottom:8px">
         <div class="seg" id="boxSeg">
           <button data-box="all" class="on">All boxes</button>
@@ -207,7 +253,15 @@
           <button data-box="4">4</button>
           <button data-box="5">5</button>
         </div>
-        <span class="stat">Yellow = pentatonic · Blue/green = plus two · Red = root. Filter a box or leave All on.</span>
+        <label class="stat">Neck area
+          <select id="neckPref">
+            <option value="all" selected>Full neck</option>
+            <option value="low">Open–7</option>
+            <option value="mid">5–12</option>
+            <option value="high">10–15</option>
+          </select>
+        </label>
+        <span class="stat">Yellow = pentatonic · Blue/green = plus two · Red = root.</span>
       </div>
       <div class="fs-pane" id="fbPane">
         <div class="row fs-only" style="margin-bottom:8px; justify-content:space-between">
@@ -327,6 +381,7 @@ $("keySel").addEventListener("change", () => {
   rootPc = NAMES.indexOf($("keySel").value);
   renderBoard();
 });
+if ($("neckPref")) $("neckPref").addEventListener("change", renderBoard);
 $("boxSeg").addEventListener("click", e => {
   const b = e.target.closest("button");
   if (!b) return;
@@ -349,9 +404,19 @@ function exitFs() {
   if (x) x.call(document);
 }
 document.querySelectorAll(".fs-close").forEach(btn => btn.addEventListener("click", exitFs));
+function parkTransport() {
+  const bar = $("transport");
+  const home = $("transportHome");
+  if (!bar || !home) return;
+  const fs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fs === $("fbPane") || fs === $("tabPane")) fs.insertBefore(bar, fs.firstChild);
+  else home.appendChild(bar);
+}
 document.addEventListener("fullscreenchange", () => {
   $("fsExit").hidden = document.fullscreenElement !== $("stage");
+  parkTransport();
 });
+document.addEventListener("webkitfullscreenchange", parkTransport);
 
 $("file").addEventListener("click", () => { $("file").value = ""; });
 $("file").addEventListener("change", async ev => {
@@ -865,6 +930,25 @@ function notesInBox(box) {
   });
 }
 
+function fretBand() {
+  const p = ($("neckPref") && $("neckPref").value) || "all";
+  if (p === "low") return [0, 7];
+  if (p === "mid") return [5, 12];
+  if (p === "high") return [10, 15];
+  return [0, MAX_FRET];
+}
+
+function uniqueSoloDots() {
+  const map = new Map();
+  solo.forEach(n => {
+    const k = n.si + "-" + n.fret;
+    if (!map.has(k)) map.set(k, {
+      si: n.si, fret: n.fret, midi: n.midi, name: n.name, kind: n.kind || "pent"
+    });
+  });
+  return [...map.values()];
+}
+
 function renderBoard() {
   const board = $("board");
   board.style.gridTemplateColumns = "28px repeat(" + (MAX_FRET + 1) + ", 1fr)";
@@ -878,9 +962,8 @@ function renderBoard() {
     d.textContent = f;
     board.appendChild(d);
   }
-  const pool = allScaleNotes();
-  const focus = viewBox === "all" ? null : notesInBox(+viewBox);
-  const boxSet = focus ? new Set(focus.map(n => n.si + "-" + n.fret)) : null;
+  const pool = solo.length ? uniqueSoloDots() : [];
+  const boxSet = null;
   for (let si = 0; si < 6; si++) {
     const lab = document.createElement("div");
     lab.className = "nut"; lab.textContent = STR_LAB[si];
@@ -908,7 +991,8 @@ function renderBoard() {
       const hit = pool.find(n => n.si === si && n.fret === f);
       const btn = document.createElement("button");
       if (hit) {
-        const dim = boxSet && !boxSet.has(si + "-" + f);
+        const [lo, hi] = fretBand();
+        const dim = (boxSet && !boxSet.has(si + "-" + f)) || f < lo || f > hi;
         btn.className = "note " + hit.kind + (dim ? " dim" : "");
         btn.id = "n-" + si + "-" + f;
         btn.textContent = hit.name;
@@ -1051,49 +1135,65 @@ function token(fret, hi) {
   return raw;
 }
 
+function barLen() {
+  return 4 * (60 / (+$("bpmIn").value || 90));
+}
+
 function drawTab(hi) {
   const el = $("tab");
   el.innerHTML = "";
   if (!solo.length) {
-    el.textContent = "Generate a solo to see tab.";
+    el.textContent = "Generate a solo to see staff tab.";
     return;
   }
-  const byBar = {};
-  solo.forEach((n, i) => { (byBar[n.bar] || (byBar[n.bar] = [])).push({ i, n }); });
-  const bars = Object.keys(byBar).map(Number).sort((a,b)=>a-b);
-  for (let i = 0; i < bars.length; i += 4) {
-    const group = bars.slice(i, i + 4);
+  const bl = barLen();
+  const lastT = solo[solo.length - 1].t + (solo[solo.length - 1].dur || 0);
+  const barCount = Math.max(1, Math.ceil(lastT / bl));
+  const perSys = 3;
+  for (let start = 0; start < barCount; start += perSys) {
+    const nBars = Math.min(perSys, barCount - start);
     const sys = document.createElement("div");
     sys.className = "sys";
-    sys.id = "sys-" + group[0];
+    sys.id = "sys-" + start;
     const lab = document.createElement("div");
     lab.className = "lab";
-    lab.textContent = "Bars " + (group[0] + 1) + "–" + (group[group.length - 1] + 1) +
-      "  ·  Box " + byBar[group[0]][0].n.box;
+    lab.textContent = (start + 1) + (nBars > 1 ? "–" + (start + nBars) : "");
     sys.appendChild(lab);
-    const rows = STR_LAB.map((name, si) => {
-      const line = document.createElement("div");
-      line.appendChild(document.createTextNode(name + " |"));
-      group.forEach(b => {
-        const mark = document.createElement("span");
-        mark.textContent = "[" + (b + 1) + "]";
-        mark.style.color = "#555963";
-        line.appendChild(mark);
-        byBar[b].forEach(s => {
-          const sp = document.createElement("span");
-          sp.className = "tok" + (hi === s.i ? " cur" : (hi > s.i ? " played" : ""));
-          sp.id = "tok-" + s.i;
-          const cells = ["--","--","--","--","--","--"];
-          cells[s.n.si] = token(s.n.fret);
-          sp.textContent = cells[si] + "-";
-          line.appendChild(sp);
-        });
-        line.appendChild(document.createTextNode("--"));
-      });
-      line.appendChild(document.createTextNode("|"));
-      return line;
+    const row = document.createElement("div");
+    row.className = "staffrow";
+    const clef = document.createElement("div");
+    clef.className = "tabclef";
+    clef.innerHTML = "T<br>A<br>B";
+    row.appendChild(clef);
+    const staff = document.createElement("div");
+    staff.className = "staff";
+    const head = document.createElement("div");
+    head.className = "playhead";
+    staff.appendChild(head);
+    for (let b = 1; b < nBars; b++) {
+      const ln = document.createElement("div");
+      ln.className = "barline";
+      ln.style.left = (b / nBars * 100) + "%";
+      staff.appendChild(ln);
+    }
+    const end = document.createElement("div");
+    end.className = "barline" + (start + nBars >= barCount ? " dbl" : "");
+    end.style.right = "0";
+    staff.appendChild(end);
+    const t0 = start * bl;
+    const span = nBars * bl;
+    solo.forEach((n, i) => {
+      if (n.t < t0 - 0.01 || n.t >= t0 + span) return;
+      const sp = document.createElement("div");
+      sp.className = "tabnote" + (hi === i ? " cur" : (hi > i ? " played" : ""));
+      sp.id = "tok-" + i;
+      sp.textContent = n.fret;
+      sp.style.left = (((n.t - t0) / span) * 100) + "%";
+      sp.style.top = (n.si * 18 + 1) + "px";
+      staff.appendChild(sp);
     });
-    rows.forEach(r => sys.appendChild(r));
+    row.appendChild(staff);
+    sys.appendChild(row);
     el.appendChild(sys);
   }
 }
@@ -1113,19 +1213,27 @@ function scrollTabTo(tok) {
 }
 
 function follow(i) {
-  document.querySelectorAll(".tok.cur").forEach(n => { n.classList.remove("cur"); n.classList.add("played"); });
+  document.querySelectorAll(".tok.cur, .tabnote.cur").forEach(n => { n.classList.remove("cur"); n.classList.add("played"); });
   const tok = document.getElementById("tok-" + i);
   if (tok) {
     tok.classList.add("cur");
     tok.classList.remove("played");
     scrollTabTo(tok);
+    const staff = tok.parentElement;
+    if (staff) {
+      document.querySelectorAll(".playhead.on").forEach(h => h.classList.remove("on"));
+      const head = staff.querySelector(".playhead");
+      if (head) {
+        head.classList.add("on");
+        head.style.left = tok.style.left;
+      }
+    }
   }
   const n = solo[i];
   if (!n) return;
   if (n.box !== activeBox) {
     activeBox = n.box;
     $("boxLab").textContent = "Box " + activeBox;
-    renderBoard();
   }
   document.querySelectorAll(".note.now").forEach(el => el.classList.remove("now"));
   const dot = document.getElementById("n-" + n.si + "-" + n.fret);
@@ -1223,6 +1331,62 @@ function startFollowLoop() {
   followRaf = requestAnimationFrame(step);
 }
 
+function applySpeed() {
+  const p = $("player");
+  if (p && $("speedSel")) p.playbackRate = +$("speedSel").value || 1;
+}
+if ($("speedSel")) $("speedSel").addEventListener("change", applySpeed);
+
+let scrubbing = false;
+function setScrubUi() {
+  const p = $("player");
+  const s = $("scrub");
+  if (!p || !s) return;
+  const dur = p.duration && isFinite(p.duration) ? p.duration : (trackDur || 0);
+  if (dur > 0 && !scrubbing) s.value = Math.round((p.currentTime / dur) * 1000);
+  if ($("scrubTime")) $("scrubTime").textContent = fmtTime(p.currentTime || 0) + " / " + fmtTime(dur);
+  if ($("pauseBtn")) $("pauseBtn").textContent = p.paused ? "Play" : "Pause";
+}
+if ($("pauseBtn")) $("pauseBtn").addEventListener("click", () => {
+  const p = $("player");
+  if (!p.src) {
+    $("status").textContent = "Upload a track first.";
+    return;
+  }
+  if (p.paused) {
+    applySpeed();
+    playing = true;
+    p.play();
+    startFollowLoop();
+  } else {
+    p.pause();
+    playing = false;
+    if (solo.length) syncFollow(p.currentTime, false);
+  }
+  setScrubUi();
+});
+if ($("scrub")) {
+  $("scrub").addEventListener("mousedown", () => { scrubbing = true; });
+  $("scrub").addEventListener("touchstart", () => { scrubbing = true; }, { passive: true });
+  $("scrub").addEventListener("input", () => {
+    const p = $("player");
+    const dur = p.duration && isFinite(p.duration) ? p.duration : (trackDur || 0);
+    if (!dur) return;
+    const t = (+$("scrub").value / 1000) * dur;
+    if ($("scrubTime")) $("scrubTime").textContent = fmtTime(t) + " / " + fmtTime(dur);
+    try { p.currentTime = t; } catch (e) {}
+    lastFired = -1;
+    if (solo.length) syncFollow(t, false);
+  });
+  const endScrub = () => { scrubbing = false; };
+  $("scrub").addEventListener("mouseup", endScrub);
+  $("scrub").addEventListener("touchend", endScrub);
+}
+$("player").addEventListener("timeupdate", setScrubUi);
+$("player").addEventListener("loadedmetadata", setScrubUi);
+$("player").addEventListener("pause", setScrubUi);
+$("player").addEventListener("play", setScrubUi);
+
 function playTogether() {
   if (!solo.length) {
     $("status").textContent = "Load MIDI or tab, or generate a solo first.";
@@ -1243,6 +1407,7 @@ function playTogether() {
   $("status").textContent = "Following " + solo.length + " notes · first at " +
     solo[0].t.toFixed(2) + "s · last at " + solo[solo.length - 1].t.toFixed(2) + "s";
   try { player.currentTime = 0; } catch (e) {}
+  applySpeed();
   const go = player.play();
   startFollowLoop();
   if (go && go.catch) go.catch(() => {
