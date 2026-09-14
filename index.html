@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Practice Studio Plus</title>
+  <title>Practice Studio Plus (Beta)</title>
   <style>
     :root {
       --bg: #0c0d10; --bg2: #14161c; --bg3: #1c1f28; --line: #2a2e3a;
@@ -168,13 +168,13 @@
 <body>
   <header>
     <h1>Practice Studio <span>Plus</span></h1>
-    <p class="lead">Upload a backing track. The app finds the key and writes a solo. Watch the big note on the neck and the gold number on the staff.</p>
+    <p class="lead">Upload a track. The app finds the key and writes a solo. Watch the big note on the neck and the gold number on the staff.</p>
     <p class="stat" style="margin:0 0 8px"><a href="learn-solo.html" style="color:var(--pent)">Learn a recorded solo (MIDI / tab) →</a></p>
   </header>
   <div class="wrap">
     <div class="panel">
       <div class="row">
-        <label class="file">Upload backing track
+        <label class="file">Upload track
           <input id="file" type="file" accept="audio/*" />
         </label>
         <span class="stat" id="fileName">No file yet</span>
@@ -185,7 +185,7 @@
         <button class="ghost" id="saveBtn" disabled>Save track</button>
       </div>
       <audio id="player" controls></audio>
-      <p class="status" id="status">Upload a backing track. Analysis and a solo start automatically.</p>
+      <p class="status" id="status">Upload a track. Analysis and a solo start automatically.</p>
       <div class="lib" id="lib"></div>
     </div>
 
@@ -210,6 +210,7 @@
           <select id="lenSel">
             <option value="full" selected>Entire track</option>
             <option value="8">8 bars</option>
+            <option value="12">12 bars</option>
             <option value="16">16 bars</option>
             <option value="32">32 bars</option>
           </select>
