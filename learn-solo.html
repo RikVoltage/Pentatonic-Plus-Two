@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pentatonic Plus Two — Practice Studio</title>
+  <title>Learn a recorded solo — MIDI / tab</title>
   <style>
     :root {
       --bg: #0c0d10; --bg2: #14161c; --bg3: #1c1f28; --line: #2a2e3a;
@@ -97,28 +97,58 @@
       overflow: auto;
     }
     .stage:fullscreen .tabwrap { max-height: calc(100vh - 320px); }
-    .fs-pane:fullscreen .tabwrap { max-height: calc(100vh - 80px); }
+    .fs-pane:fullscreen .tabwrap { max-height: calc(100vh - 140px); }
     .fs-pane:fullscreen .fretboard { min-width: 100%; }
+    .stage:fullscreen #transport,
+    .fs-pane:fullscreen #transport {
+      position: sticky; top: 0; z-index: 12;
+      background: #0c0d10; padding: 8px 0 12px;
+    }
     .fs-pane { border-radius: 10px; }
     .fs-only { display: none; }
     .fs-pane:fullscreen > .fs-only,
     .stage:fullscreen .stage-exit { display: flex; }
     .tabwrap {
-      overflow: auto; max-height: 220px; background: #0e1014;
-      border-radius: 10px; padding: 12px; scroll-behavior: smooth;
+      overflow: auto; max-height: 280px; background: #f4f1ea;
+      border-radius: 10px; padding: 14px 12px 18px; scroll-behavior: smooth;
     }
-    .tab {
-      font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
-      line-height: 1.4; color: #8d8a84; white-space: pre;
+    .tab { color: #1a1a1a; }
+    .sys { margin-bottom: 22px; }
+    .sys .lab { color: #4a6fa5; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+    .staffrow { display: flex; align-items: stretch; }
+    .tabclef {
+      width: 28px; display: flex; flex-direction: column; justify-content: center;
+      font: 800 11px/1.15 ui-sans-serif, system-ui; color: #222; letter-spacing: .04em;
     }
-    .sys { margin-bottom: 16px; }
-    .sys .lab { color: #6a6e78; font-size: 11px; margin-bottom: 2px; }
+    .staff {
+      position: relative; flex: 1; height: 108px;
+      background: repeating-linear-gradient(
+        to bottom, #2a2a2a 0 1px, transparent 1px 18px
+      );
+      background-size: 100% 18px;
+      border-left: 2px solid #222; border-right: 2px solid #222;
+    }
+    .barline {
+      position: absolute; top: 0; bottom: 0; width: 2px; background: #222; z-index: 1;
+    }
+    .barline.dbl { width: 5px; background: linear-gradient(to right, #222 0 2px, transparent 2px 3px, #222 3px 5px); }
+    .tabnote {
+      position: absolute; z-index: 2; transform: translate(-50%, -50%);
+      min-width: 16px; text-align: center;
+      font: 800 12px/1 ui-sans-serif, system-ui; color: #111;
+      background: #f4f1ea; padding: 0 2px; border-radius: 2px;
+    }
+    .tabnote.cur {
+      background: #c9a227; color: #1a1408;
+      box-shadow: 0 0 0 2px #c9a227; z-index: 4;
+    }
+    .tabnote.played { color: #7a756c; }
+    .playhead {
+      position: absolute; top: -6px; bottom: -6px; width: 3px;
+      background: #3b82f6; border-radius: 2px; z-index: 3; display: none;
+    }
+    .playhead.on { display: block; }
     .tok { color: #c7c3bb; }
-    .tok.cur {
-      background: #c9a227; color: #1a1408; border-radius: 3px;
-      padding: 0 1px; box-shadow: 0 0 0 1px #c9a227;
-    }
-    .tok.played { color: #6e6b66; }
     ul.tips { padding-left: 18px; color: #c9c7c2; font-size: 14px; }
     ul.tips li { margin: 6px 0; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -131,13 +161,14 @@
     }
     .lib-item button { padding: 5px 8px; }
     .lib-item .nm { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .scrub { flex: 1; min-width: 140px; accent-color: #c9a227; height: 6px; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Pentatonic <span>Plus Two</span> Practice Studio</h1>
-    <p class="lead">Upload a backing track. Analyze key and tempo, generate a Pentatonic Plus Two practice line, and follow it on the neck and tab.</p>
-    <p class="stat" style="margin:0 0 8px"><a href="learn-solo.html" style="color:var(--pent)">Learn a recorded solo (MIDI / tab) →</a></p>
+    <h1>Learn a <span>recorded solo</span></h1>
+    <p class="lead">Load the MP3, then load MIDI from an AI export or paste tab you already have. The neck and tab follow the recording. This page does not invent tab from audio.</p>
+    <p class="stat" style="margin:0 0 8px"><a href="pentatonic-plus-two.html" style="color:var(--pent)">← Practice Studio</a> · <a href="index.html" style="color:var(--pent)">Studio (hosted)</a></p>
   </header>
   <div class="wrap">
     <div class="panel">
@@ -146,45 +177,78 @@
           <input id="file" type="file" accept="audio/*" />
         </label>
         <span class="stat" id="fileName">No file yet</span>
-        <button class="primary" id="analyzeBtn" disabled>Analyze track</button>
-        <button class="ghost" id="genBtn" disabled>Generate solo</button>
-        <button class="ghost" id="playSoloBtn" disabled>Play track + solo</button>
+        <button class="ghost" id="analyzeBtn">Analyze track → tab</button>
+        <button class="primary" id="playSoloBtn" disabled>Play track + notes</button>
         <button class="ghost" id="stopBtn" disabled>Stop</button>
         <button class="ghost" id="saveBtn" disabled>Save track</button>
+        <button class="ghost" id="saveMidiBtn" disabled>Save MIDI</button>
+        <button id="genBtn" hidden></button>
       </div>
       <audio id="player" controls></audio>
       <p class="status" id="status">Choose an MP3, WAV, or M4A backing track. Saved tracks stay in this browser.</p>
       <div class="lib" id="lib"></div>
+      <div class="lib" id="midiLib"></div>
+    </div>
+
+    <div class="panel">
+      <h2>MIDI or tab</h2>
+      <p class="stat" style="margin-bottom:8px">Upload a .mid export or paste six-line tab. Then play it against the MP3.</p>
+      <textarea id="tabIn" placeholder="e|--5-8-5----|\nB|-------8-5--|\nG|------------|\nD|------------|\nA|------------|\nE|------------|" style="width:100%;min-height:120px;background:#0e1014;color:#d8d4cc;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+      <div class="row" style="margin-top:8px">
+        <label class="file">Upload MIDI
+          <input id="midiFile" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" />
+        </label>
+        <label class="file">Upload .txt tab
+          <input id="tabFile" type="file" accept=".txt,.tab,.text,text/plain" />
+        </label>
+        <input id="tabSearch" type="text" placeholder="Song or artist" style="background:var(--bg3);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:13px;min-width:160px" />
+        <button class="ghost" type="button" id="tabSearchBtn">Search internet</button>
+        <button class="primary" type="button" id="loadTabBtn">Load tab onto neck</button>
+        <label class="stat">Start at
+          <input id="tabOffset" type="number" min="0" step="0.1" value="0" style="width:72px" /> sec
+        </label>
+        <label class="stat">Seconds per tab dash
+          <input id="tabStep" type="number" min="0.02" max="1" step="0.01" value="0.12" style="width:72px" />
+        </label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label class="stat">Octave
+          <select id="octShift">
+            <option value="-12">−1</option>
+            <option value="0" selected>as written</option>
+            <option value="12">+1</option>
+          </select>
+        </label>
+        <label class="stat">Neck area
+          <select id="neckPref">
+            <option value="low">Open–7</option>
+            <option value="mid" selected>5–12</option>
+            <option value="high">10–15</option>
+          </select>
+        </label>
+        <label class="stat">MIDI part
+          <select id="midiCh"><option value="lead">Lead only</option><option value="all">All channels</option></select>
+        </label>
+        <label class="stat"><input id="melodyOnly" type="checkbox" checked /> Melody only (drop chords)</label>
+        <button class="ghost" type="button" id="remapBtn">Remap MIDI</button>
+      </div>
     </div>
 
     <div class="panel">
       <div class="row">
+        <label class="stat">Tuning <select id="tuneSel"></select></label>
         <label class="stat">Key <select id="keySel"></select></label>
-        <div class="seg" id="modeSeg">
-          <button data-mode="pent">Pentatonic</button>
-          <button data-mode="aeolian" class="on">Natural minor</button>
-          <button data-mode="dorian">Dorian</button>
-        </div>
         <label class="stat">BPM <input id="bpmIn" type="number" min="60" max="200" value="90" style="width:72px" /></label>
-        <label class="stat">Tuning
-          <select id="tuneSel"></select>
-        </label>
-        <label class="stat"><input id="metroOn" type="checkbox" /> Metronome</label>
-        <button class="ghost" type="button" id="metroBtn">Click only</button>
-        <label class="stat">Click
-          <input id="metroVol" type="range" min="0" max="100" value="55" style="width:80px; vertical-align:middle" />
-        </label>
-        <label class="stat">Length
-          <select id="lenSel">
-            <option value="full" selected>Entire track</option>
-            <option value="8">8 bars</option>
-            <option value="16">16 bars</option>
-            <option value="32">32 bars</option>
-          </select>
-        </label>
         <span class="stat">Track <b id="durLab">—</b></span>
-        <span class="stat">Covers <b id="coverLab">—</b></span>
-        <span class="stat">Now in <b id="boxLab">Box 1</b></span>
+        <span class="stat">Notes <b id="coverLab">—</b></span>
+        <span class="stat">Box <b id="boxLab">—</b></span>
+        <div class="seg" id="modeSeg" hidden>
+          <button data-mode="aeolian" class="on">Natural minor</button>
+        </div>
+        <input id="metroOn" type="checkbox" hidden />
+        <button id="metroBtn" hidden></button>
+        <input id="metroVol" type="range" value="55" hidden />
+        <select id="lenSel" hidden><option value="full" selected>Entire track</option></select>
       </div>
     </div>
 
@@ -197,6 +261,21 @@
           <button class="ghost" type="button" data-fs="tabPane">Fullscreen tab</button>
           <button class="ghost stage-exit fs-close" type="button" id="fsExit" hidden>Exit fullscreen</button>
         </div>
+      </div>
+      <div id="transportHome">
+      <div class="row" id="transport" style="margin-bottom:8px">
+        <button class="primary" type="button" id="pauseBtn">Pause</button>
+        <label class="stat">Speed
+          <select id="speedSel">
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1.25×</option>
+          </select>
+        </label>
+        <span class="stat" id="scrubTime">0:00 / 0:00</span>
+        <input class="scrub" id="scrub" type="range" min="0" max="1000" value="0" step="1" />
+      </div>
       </div>
       <div class="row" style="margin-bottom:8px">
         <div class="seg" id="boxSeg">
@@ -216,7 +295,7 @@
         </div>
         <div class="fbwrap"><div class="fretboard" id="board"></div></div>
       </div>
-      <div class="nowline" id="nowline" style="margin-top:10px">Waiting for a generated solo.</div>
+      <div class="nowline" id="nowline" style="margin-top:10px">Load MIDI or tab, then play the track.</div>
       <p class="stat" id="soloMeta">Generate after analyzing a track.</p>
       <div class="fs-pane" id="tabPane">
         <div class="row fs-only" style="margin-bottom:8px; justify-content:space-between">
@@ -270,6 +349,7 @@ let solo = [];
 let audioCtx = null;
 let playing = false;
 let lastFired = -1;
+let currentPlay = -1;
 let trackDur = 0;
 let activeBox = 1;
 let viewBox = "all";
@@ -349,9 +429,22 @@ function exitFs() {
   if (x) x.call(document);
 }
 document.querySelectorAll(".fs-close").forEach(btn => btn.addEventListener("click", exitFs));
+function parkTransport() {
+  const bar = $("transport");
+  const home = $("transportHome");
+  if (!bar || !home) return;
+  const fs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fs === $("fbPane") || fs === $("tabPane")) {
+    fs.insertBefore(bar, fs.firstChild);
+  } else {
+    home.appendChild(bar);
+  }
+}
 document.addEventListener("fullscreenchange", () => {
   $("fsExit").hidden = document.fullscreenElement !== $("stage");
+  parkTransport();
 });
+document.addEventListener("webkitfullscreenchange", parkTransport);
 
 $("file").addEventListener("click", () => { $("file").value = ""; });
 $("file").addEventListener("change", async ev => {
@@ -362,7 +455,7 @@ $("file").addEventListener("change", async ev => {
   try {
     await loadFromBlob(f, f.name, f.type || "audio/mpeg");
     await saveTrack(currentName, currentType, currentBlob);
-    $("status").textContent = "Loaded and saved “" + f.name + "”. Analyze, then generate.";
+    $("status").textContent = "Loaded and saved “" + f.name + "”. Next: upload MIDI or paste tab, then Play track + notes.";
     await refreshLibrary();
   } catch (err) {
     $("status").textContent = "Track selected, but audio decode failed. You can still Save. Try WAV/MP3. (" + (err && err.message ? err.message : err) + ")";
@@ -385,15 +478,84 @@ $("saveBtn").addEventListener("click", async () => {
 
 async function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("ppt-studio", 1);
+    const req = indexedDB.open("ppt-studio", 2);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains("tracks")) {
         db.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
       }
+      if (!db.objectStoreNames.contains("midi")) {
+        db.createObjectStore("midi", { keyPath: "id", autoIncrement: true });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveMidi(name, blob) {
+  const copy = blob.slice(0, blob.size, blob.type || "audio/midi");
+  const db = await openDB();
+  const storeName = db.objectStoreNames.contains("midi") ? "midi" : "tracks";
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    tx.objectStore(storeName).add({
+      name, type: "audio/midi", kind: "midi", blob: copy, savedAt: Date.now()
+    });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function listMidi() {
+  const db = await openDB();
+  const from = async store => new Promise((resolve, reject) => {
+    if (!db.objectStoreNames.contains(store)) return resolve([]);
+    const tx = db.transaction(store, "readonly");
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+  const a = await from("midi");
+  const b = (await from("tracks")).filter(r => r.kind === "midi" || (r.type || "").indexOf("midi") >= 0);
+  return a.concat(b);
+}
+async function deleteMidi(id) {
+  const db = await openDB();
+  const storeName = db.objectStoreNames.contains("midi") ? "midi" : "tracks";
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    tx.objectStore(storeName).delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function refreshMidiLib() {
+  const lib = $("midiLib");
+  if (!lib) return;
+  lib.innerHTML = "";
+  let rows = [];
+  try { rows = await listMidi(); } catch (e) { return; }
+  if (!rows.length) {
+    lib.innerHTML = "<span class='stat'>No saved MIDI yet.</span>";
+    return;
+  }
+  rows.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+  rows.forEach(row => {
+    const item = document.createElement("div");
+    item.className = "lib-item";
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = "MIDI · " + row.name;
+    const load = document.createElement("button");
+    load.className = "ghost";
+    load.textContent = "Load";
+    load.onclick = () => loadSavedMidi(row.blob, row.name);
+    const del = document.createElement("button");
+    del.className = "ghost";
+    del.textContent = "Delete";
+    del.onclick = async () => { await deleteMidi(row.id); refreshMidiLib(); };
+    item.appendChild(nm); item.appendChild(load); item.appendChild(del);
+    lib.appendChild(item);
   });
 }
 
@@ -431,7 +593,7 @@ async function refreshLibrary() {
   const lib = $("lib");
   lib.innerHTML = "";
   let rows = [];
-  try { rows = await listTracks(); } catch (e) { return; }
+  try { rows = (await listTracks()).filter(r => r.kind !== "midi" && (r.type || "").indexOf("midi") < 0); } catch (e) { return; }
   if (!rows.length) {
     lib.innerHTML = "<span class='stat'>No saved tracks yet.</span>";
     return;
@@ -456,6 +618,98 @@ async function refreshLibrary() {
   });
 }
 
+refreshMidiLib();
+
+function applySpeed() {
+  const p = $("player");
+  if (p && $("speedSel")) p.playbackRate = +$("speedSel").value || 1;
+}
+if ($("speedSel")) $("speedSel").addEventListener("change", applySpeed);
+
+let scrubbing = false;
+function setScrubUi() {
+  const p = $("player");
+  const s = $("scrub");
+  if (!p || !s) return;
+  const dur = p.duration && isFinite(p.duration) ? p.duration : (trackDur || 0);
+  if (dur > 0 && !scrubbing) s.value = Math.round((p.currentTime / dur) * 1000);
+  if ($("scrubTime")) $("scrubTime").textContent = fmtTime(p.currentTime || 0) + " / " + fmtTime(dur);
+  if ($("pauseBtn")) $("pauseBtn").textContent = p.paused ? "Play" : "Pause";
+}
+if ($("pauseBtn")) $("pauseBtn").addEventListener("click", () => {
+  const p = $("player");
+  if (!p.src) {
+    $("status").textContent = "Upload a track first.";
+    return;
+  }
+  if (p.paused) {
+    applySpeed();
+    playing = true;
+    p.play();
+    startFollowLoop();
+  } else {
+    p.pause();
+    playing = false;
+    syncFollow(p.currentTime, false);
+  }
+  setScrubUi();
+});
+if ($("scrub")) {
+  $("scrub").addEventListener("mousedown", () => { scrubbing = true; });
+  $("scrub").addEventListener("touchstart", () => { scrubbing = true; }, { passive: true });
+  $("scrub").addEventListener("input", () => {
+    const p = $("player");
+    const dur = p.duration && isFinite(p.duration) ? p.duration : (trackDur || 0);
+    if (!dur) return;
+    const t = (+$("scrub").value / 1000) * dur;
+    if ($("scrubTime")) $("scrubTime").textContent = fmtTime(t) + " / " + fmtTime(dur);
+    if (p.paused || scrubbing) {
+      try { p.currentTime = t; } catch (e) {}
+      lastFired = -1;
+      if (solo.length) syncFollow(t, false);
+    }
+  });
+  const endScrub = () => {
+    const p = $("player");
+    const dur = p.duration && isFinite(p.duration) ? p.duration : (trackDur || 0);
+    if (dur) {
+      try { p.currentTime = (+$("scrub").value / 1000) * dur; } catch (e) {}
+    }
+    lastFired = -1;
+    if (solo.length) syncFollow(p.currentTime, false);
+    scrubbing = false;
+  };
+  $("scrub").addEventListener("mouseup", endScrub);
+  $("scrub").addEventListener("touchend", endScrub);
+}
+$("player").addEventListener("timeupdate", setScrubUi);
+$("player").addEventListener("loadedmetadata", setScrubUi);
+$("player").addEventListener("pause", setScrubUi);
+$("player").addEventListener("play", setScrubUi);
+
+if ($("saveMidiBtn")) $("saveMidiBtn").addEventListener("click", async () => {
+  if (!lastMidiBlob) {
+    $("status").textContent = "Upload a MIDI file first.";
+    return;
+  }
+  try {
+    await saveMidi(lastMidiName || "solo.mid", lastMidiBlob);
+    $("status").textContent = "Saved MIDI “" + lastMidiName + "” in this browser.";
+    await refreshMidiLib();
+  } catch (err) {
+    $("status").textContent = "Could not save MIDI. " + (err && err.message ? err.message : "");
+  }
+});
+
+async function loadSavedMidi(blob, name) {
+  lastMidiBlob = blob;
+  lastMidiName = name;
+  if ($("saveMidiBtn")) $("saveMidiBtn").disabled = false;
+  const notes = parseMidiFile(new Uint8Array(await blob.arrayBuffer()));
+  fillMidiChannels(notes);
+  applyMidiNotes(notes, name);
+}
+
 async function loadFromBlob(blob, name, type) {
   currentBlob = blob;
   currentName = name;
@@ -467,8 +721,17 @@ async function loadFromBlob(blob, name, type) {
   $("analyzeBtn").disabled = false;
   $("saveBtn").disabled = false;
   $("genBtn").disabled = true;
+  solo = [];
+  lastFired = -1;
+  currentPlay = -1;
+  if ($("tabIn")) $("tabIn").value = "";
+  drawTab(-1);
+  renderBoard();
   $("playSoloBtn").disabled = true;
-  $("status").textContent = "Loaded “" + name + "”. Analyze, then generate.";
+  if ($("coverLab")) $("coverLab").textContent = "—";
+  if ($("soloMeta")) $("soloMeta").textContent = "Load MIDI or tab for this track.";
+  if ($("nowline")) $("nowline").textContent = "New track loaded. Load MIDI or tab, then play.";
+  $("status").textContent = "Loaded “" + name + "”. Tab cleared. Upload MIDI or paste tab, then play.";
   try {
     const ctx = getCtx();
     if (ctx.state === "suspended") await ctx.resume();
@@ -480,24 +743,52 @@ async function loadFromBlob(blob, name, type) {
     $("status").textContent = "File is ready to Save, but this browser could not decode it for analysis. Try MP3 or WAV.";
     throw err;
   }
+  const q = trackSearchQuery(name);
+  if (q) {
+    if ($("tabSearch")) $("tabSearch").value = q;
+    openTabSearch(q);
+    $("status").textContent = "Loaded “" + name + "”. Searched the web for “" + q + " guitar tab”. Paste tab here if you find one.";
+  }
 }
 
 refreshLibrary();
 
 $("analyzeBtn").addEventListener("click", () => {
-  if (!audioBuf) return;
-  $("status").textContent = "Analyzing…";
+  if (!audioBuf) {
+    $("status").textContent = "Upload a track first.";
+    return;
+  }
+  $("status").textContent = "Analyzing pitch from the upload…";
+  $("analyzeBtn").disabled = true;
   setTimeout(() => {
-    const bpm = estimateBpm(audioBuf);
-    const key = estimateKey(audioBuf);
-    $("bpmIn").value = bpm;
-    $("keySel").value = key;
-    rootPc = NAMES.indexOf(key);
-    $("genBtn").disabled = false;
-    $("status").textContent = "Estimate: " + key + " minor @ " + bpm + " BPM · " +
-      fmtTime(trackDur) + " · ~" + barsForTrack(bpm) + " bars.";
-    renderBoard();
-  }, 20);
+    try {
+      const bpm = estimateBpm(audioBuf);
+      const key = estimateKey(audioBuf);
+      $("bpmIn").value = bpm;
+      $("keySel").value = key;
+      rootPc = NAMES.indexOf(key);
+      const notes = pitchTrackToTab(audioBuf);
+      if (!notes.length) {
+        $("status").textContent = "Could not hear a clear single line. Try a lead-only export, or load MIDI.";
+        $("analyzeBtn").disabled = false;
+        return;
+      }
+      solo = notes;
+      lastFired = -1;
+      currentPlay = -1;
+      drawTab(-1);
+      $("playSoloBtn").disabled = false;
+      const lastT = solo[solo.length - 1].t + solo[solo.length - 1].dur;
+      $("coverLab").textContent = fmtTime(lastT);
+      $("soloMeta").textContent = solo.length + " notes from audio · sketch tab (not a published transcription)";
+      $("nowline").textContent = "Audio tab ready — Play track + notes.";
+      $("status").textContent = "Pulled " + solo.length + " notes from the upload · " + key + " · " + bpm + " BPM. Check octave/neck if the line sits wrong.";
+      renderBoard();
+    } catch (err) {
+      $("status").textContent = "Analyze failed. " + (err && err.message ? err.message : err);
+    }
+    $("analyzeBtn").disabled = false;
+  }, 30);
 });
 
 $("genBtn").addEventListener("click", () => {
@@ -514,27 +805,66 @@ $("genBtn").addEventListener("click", () => {
   renderBoard();
 });
 
-if ($("midiFile")) $("midiFile").addEventListener("change", async ev => {
+$("midiFile").addEventListener("change", async ev => {
   const f = ev.target.files[0];
   if (!f) return;
+  lastMidiBlob = f.slice(0, f.size, f.type || "audio/midi");
+  lastMidiName = f.name;
+  if ($("saveMidiBtn")) $("saveMidiBtn").disabled = false;
   try {
     const notes = parseMidiFile(new Uint8Array(await f.arrayBuffer()));
     if (!notes.length) {
       $("status").textContent = "MIDI opened but no note-on events found.";
       return;
     }
+    fillMidiChannels(notes);
     applyMidiNotes(notes, f.name);
+    try {
+      await saveMidi(f.name, lastMidiBlob);
+      await refreshMidiLib();
+      $("status").textContent = "Loaded and saved MIDI “" + f.name + "”.";
+    } catch (se) {
+      $("status").textContent = "MIDI loaded, but save failed: " + (se && se.message ? se.message : se);
+    }
   } catch (err) {
     $("status").textContent = "Could not read that MIDI file. Export Standard MIDI (.mid). " + (err && err.message ? err.message : "");
   }
 });
 
-if ($("tabFile")) $("tabFile").addEventListener("change", async ev => {
+function trackSearchQuery(name) {
+  let q = (name || "").replace(/\.[a-z0-9]+$/i, "");
+  q = q.replace(/[_\-]+/g, " ");
+  q = q.replace(/\b(official|audio|lyric|lyrics|video|hd|hq|remaster(ed)?|backing(\s*track)?|instrumental|karaoke|minus\s*one|youtube|mp3|wav|m4a|128k|320k)\b/gi, " ");
+  q = q.replace(/\[[^\]]*\]|\([^)]*\)/g, " ");
+  return q.replace(/\s+/g, " ").trim();
+}
+function openTabSearch(q) {
+  q = (q || "").trim();
+  if (!q) return false;
+  if ($("tabSearch")) $("tabSearch").value = q;
+  window.open("https://www.google.com/search?q=" + encodeURIComponent(q + " guitar tab"), "_blank", "noopener");
+  return true;
+}
+if ($("tabSearchBtn")) $("tabSearchBtn").addEventListener("click", () => {
+  const typed = (($("tabSearch") && $("tabSearch").value) || "").trim();
+  const q = typed || trackSearchQuery(currentName);
+  if (!q) {
+    $("status").textContent = "Upload a track (named after the song) or type a title to search.";
+    return;
+  }
+  openTabSearch(q);
+  $("status").textContent = "Search opened for “" + q + "”. Paste six-line tab, then Load tab onto neck.";
+});
+if ($("tabSearch")) $("tabSearch").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("tabSearchBtn").click();
+});
+
+$("tabFile").addEventListener("change", async ev => {
   const f = ev.target.files[0];
   if (!f) return;
   $("tabIn").value = await f.text();
 });
-if ($("loadTabBtn")) $("loadTabBtn").addEventListener("click", () => {
+$("loadTabBtn").addEventListener("click", () => {
   const parsed = parseAsciiTab($("tabIn").value);
   if (!parsed.length) {
     $("status").textContent = "Could not read tab. Need six lines labeled e/B/G/D/A/E with fret numbers.";
@@ -652,6 +982,17 @@ function parseMidiFile(bytes) {
   return notes;
 }
 
+let lastMidiRaw = null;
+let lastMidiName = "";
+let lastMidiBlob = null;
+
+function fretBand() {
+  const p = ($("neckPref") && $("neckPref").value) || "mid";
+  if (p === "low") return [0, 7];
+  if (p === "high") return [10, 15];
+  return [5, 12];
+}
+
 function midiToFret(midi, last) {
   const opts = [];
   for (let si = 0; si < 6; si++) {
@@ -659,29 +1000,45 @@ function midiToFret(midi, last) {
     if (fret >= 0 && fret <= MAX_FRET) opts.push({ si, fret, midi });
   }
   if (!opts.length) return null;
-  if (!last) {
-    const mid = opts.filter(o => o.fret >= 3 && o.fret <= 12);
-    return (mid[0] || opts[0]);
-  }
-  opts.sort((a, b) => {
-    const da = Math.abs(a.si - last.si) * 3 + Math.abs(a.fret - last.fret);
-    const db = Math.abs(b.si - last.si) * 3 + Math.abs(b.fret - last.fret);
-    return da - db;
-  });
+  const [lo, hi] = fretBand();
+  const score = o => {
+    const band = (o.fret < lo || o.fret > hi) ? 20 : 0;
+    const jump = last ? Math.abs(o.si - last.si) * 4 + Math.abs(o.fret - last.fret) : Math.abs(o.fret - (lo + hi) / 2);
+    return band + jump;
+  };
+  opts.sort((a, b) => score(a) - score(b));
   return opts[0];
 }
 
 function applyMidiNotes(notes, name) {
+  lastMidiRaw = notes;
+  lastMidiName = name || lastMidiName;
   const off = +$("tabOffset").value || 0;
+  const oct = +(($("octShift") && $("octShift").value) || 0);
+  const modeCh = ($("midiCh") && $("midiCh").value) || "lead";
+  const melody = !$("melodyOnly") || $("melodyOnly").checked;
   let last = null;
-  const lead = pickLeadChannel(notes);
+  const cleaned = notes.filter(n => n.ch !== 9);
+  const lead = modeCh === "all" ? null : modeCh.indexOf("ch:") === 0 ? +modeCh.slice(3) : pickLeadChannel(cleaned);
+  let pool = cleaned.filter(n => lead == null || n.ch === lead);
+  if (melody) {
+    const kept = [];
+    pool.sort((a,b)=>a.t-b.t || b.midi-a.midi);
+    pool.forEach(n => {
+      const prev = kept[kept.length - 1];
+      if (prev && Math.abs(n.t - prev.t) < 0.04) {
+        if (n.midi > prev.midi) kept[kept.length - 1] = n;
+      } else kept.push(n);
+    });
+    pool = kept;
+  }
   const seq = [];
-  notes.forEach(n => {
-    if (lead != null && n.ch !== lead) return;
-    if (n.midi < 40 || n.midi > 88) return;
-    const pos = midiToFret(n.midi, last);
+  pool.forEach(n => {
+    const midi = n.midi + oct;
+    if (midi < 40 || midi > 88) return;
+    const pos = midiToFret(midi, last);
     if (!pos) return;
-    const pc = ((n.midi % 12) + 12) % 12;
+    const pc = ((midi % 12) + 12) % 12;
     seq.push({
       t: n.t + off,
       dur: n.dur,
@@ -689,7 +1046,7 @@ function applyMidiNotes(notes, name) {
       box: guessBox(pos.fret),
       si: pos.si,
       fret: pos.fret,
-      midi: n.midi,
+      midi,
       pc,
       name: NAMES[pc],
       kind: kindOf(pc)
@@ -713,6 +1070,34 @@ function applyMidiNotes(notes, name) {
   $("nowline").innerHTML = "MIDI loaded — press Play track + solo.";
   renderBoard();
 }
+
+function fillMidiChannels(notes) {
+  const sel = $("midiCh");
+  if (!sel) return;
+  const chans = [...new Set(notes.filter(n => n.ch !== 9).map(n => n.ch))].sort((a,b)=>a-b);
+  sel.innerHTML = '<option value="lead">Lead only</option><option value="all">All channels</option>';
+  chans.forEach(c => {
+    const o = document.createElement("option");
+    o.value = "ch:" + c;
+    o.textContent = "Channel " + (c + 1);
+    sel.appendChild(o);
+  });
+}
+
+if ($("remapBtn")) $("remapBtn").addEventListener("click", () => {
+  if (!lastMidiRaw) {
+    $("status").textContent = "Load a MIDI file first, then remap.";
+    return;
+  }
+  applyMidiNotes(lastMidiRaw, lastMidiName);
+});
+if ($("octShift")) $("octShift").addEventListener("change", () => { if (lastMidiRaw) applyMidiNotes(lastMidiRaw, lastMidiName); });
+if ($("neckPref")) $("neckPref").addEventListener("change", () => { if (lastMidiRaw) applyMidiNotes(lastMidiRaw, lastMidiName); });
+if ($("midiCh")) $("midiCh").addEventListener("change", () => {
+  if (!lastMidiRaw) return;
+  applyMidiNotes(lastMidiRaw, lastMidiName);
+});
+if ($("melodyOnly")) $("melodyOnly").addEventListener("change", () => { if (lastMidiRaw) applyMidiNotes(lastMidiRaw, lastMidiName); });
 
 function pickLeadChannel(notes) {
   const counts = {};
@@ -865,6 +1250,17 @@ function notesInBox(box) {
   });
 }
 
+function uniqueSoloDots() {
+  const map = new Map();
+  solo.forEach(n => {
+    const k = n.si + "-" + n.fret;
+    if (!map.has(k)) map.set(k, {
+      si: n.si, fret: n.fret, midi: n.midi, name: n.name, kind: n.kind || "pent"
+    });
+  });
+  return [...map.values()];
+}
+
 function renderBoard() {
   const board = $("board");
   board.style.gridTemplateColumns = "28px repeat(" + (MAX_FRET + 1) + ", 1fr)";
@@ -878,9 +1274,8 @@ function renderBoard() {
     d.textContent = f;
     board.appendChild(d);
   }
-  const pool = allScaleNotes();
-  const focus = viewBox === "all" ? null : notesInBox(+viewBox);
-  const boxSet = focus ? new Set(focus.map(n => n.si + "-" + n.fret)) : null;
+  const pool = solo.length ? uniqueSoloDots() : [];
+  const boxSet = null;
   for (let si = 0; si < 6; si++) {
     const lab = document.createElement("div");
     lab.className = "nut"; lab.textContent = STR_LAB[si];
@@ -941,6 +1336,82 @@ function ping(midi, dur = 0.32) {
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(f).connect(g).connect(ctx.destination);
   o.start(t); o.stop(t + dur + 0.05);
+}
+
+function pitchFrame(x, sr) {
+  const n = x.length;
+  let rms = 0;
+  for (let i = 0; i < n; i++) rms += x[i] * x[i];
+  rms = Math.sqrt(rms / n);
+  if (rms < 0.02) return 0;
+  const minL = Math.max(8, Math.floor(sr / 900));
+  const maxL = Math.min(n - 2, Math.floor(sr / 80));
+  let best = 0, bestLag = 0;
+  for (let lag = minL; lag <= maxL; lag++) {
+    let r = 0, d = 0;
+    for (let i = 0; i < n - lag; i += 2) {
+      r += x[i] * x[i + lag];
+      const df = x[i] - x[i + lag];
+      d += df * df;
+    }
+    const s = r / (1 + d);
+    if (s > best) { best = s; bestLag = lag; }
+  }
+  if (bestLag < 1 || best < 0.02) return 0;
+  return sr / bestLag;
+}
+
+function pitchTrackToTab(buf) {
+  const ch = buf.getChannelData(0);
+  const sr = buf.sampleRate;
+  const win = 2048;
+  const hop = 1024;
+  const maxSamp = Math.min(ch.length, Math.floor(sr * 240));
+  const raw = [];
+  const frame = new Float32Array(win);
+  for (let off = 0; off + win < maxSamp; off += hop) {
+    for (let i = 0; i < win; i++) frame[i] = ch[off + i];
+    const hz = pitchFrame(frame, sr);
+    const t = off / sr;
+    if (!hz) { raw.push({ t, midi: 0 }); continue; }
+    raw.push({ t, midi: Math.round(69 + 12 * Math.log2(hz / 440)) });
+  }
+  const notes = [];
+  let cur = null;
+  raw.forEach(p => {
+    if (!p.midi) {
+      if (cur && p.t - cur.t >= 0.08) {
+        notes.push(cur);
+        cur = null;
+      }
+      return;
+    }
+    if (!cur) cur = { t: p.t, midi: p.midi, dur: hop / sr };
+    else if (p.midi === cur.midi) cur.dur = p.t + hop / sr - cur.t;
+    else {
+      if (cur.dur >= 0.07) notes.push(cur);
+      cur = { t: p.t, midi: p.midi, dur: hop / sr };
+    }
+  });
+  if (cur && cur.dur >= 0.07) notes.push(cur);
+  let last = null;
+  const out = [];
+  const beat = 60 / (+$("bpmIn").value || 90);
+  notes.forEach(n => {
+    if (n.midi < 40 || n.midi > 88) return;
+    const pos = midiToFret(n.midi, last);
+    if (!pos) return;
+    const pc = ((n.midi % 12) + 12) % 12;
+    out.push({
+      t: n.t, dur: n.dur,
+      bar: Math.floor(n.t / (4 * beat)),
+      box: guessBox(pos.fret),
+      si: pos.si, fret: pos.fret, midi: n.midi, pc,
+      name: NAMES[pc], kind: kindOf(pc)
+    });
+    last = pos;
+  });
+  return out;
 }
 
 function estimateBpm(buf) {
@@ -1045,55 +1516,67 @@ function generateSolo() {
   return seq;
 }
 
-function token(fret, hi) {
-  const f = String(fret);
-  const raw = f.length === 1 ? "-" + f : f;
-  return raw;
+function barLen() {
+  return 4 * (60 / (+$("bpmIn").value || 90));
 }
 
 function drawTab(hi) {
   const el = $("tab");
   el.innerHTML = "";
   if (!solo.length) {
-    el.textContent = "Generate a solo to see tab.";
+    el.textContent = "Load MIDI or paste tab to see notation.";
     return;
   }
-  const byBar = {};
-  solo.forEach((n, i) => { (byBar[n.bar] || (byBar[n.bar] = [])).push({ i, n }); });
-  const bars = Object.keys(byBar).map(Number).sort((a,b)=>a-b);
-  for (let i = 0; i < bars.length; i += 4) {
-    const group = bars.slice(i, i + 4);
+  const bl = barLen();
+  const lastT = solo[solo.length - 1].t + (solo[solo.length - 1].dur || 0);
+  const barCount = Math.max(1, Math.ceil(lastT / bl));
+  const perSys = 3;
+  for (let start = 0; start < barCount; start += perSys) {
+    const nBars = Math.min(perSys, barCount - start);
     const sys = document.createElement("div");
     sys.className = "sys";
-    sys.id = "sys-" + group[0];
+    sys.id = "sys-" + start;
     const lab = document.createElement("div");
     lab.className = "lab";
-    lab.textContent = "Bars " + (group[0] + 1) + "–" + (group[group.length - 1] + 1) +
-      "  ·  Box " + byBar[group[0]][0].n.box;
+    lab.textContent = (start + 1) + (nBars > 1 ? "–" + (start + nBars) : "");
     sys.appendChild(lab);
-    const rows = STR_LAB.map((name, si) => {
-      const line = document.createElement("div");
-      line.appendChild(document.createTextNode(name + " |"));
-      group.forEach(b => {
-        const mark = document.createElement("span");
-        mark.textContent = "[" + (b + 1) + "]";
-        mark.style.color = "#555963";
-        line.appendChild(mark);
-        byBar[b].forEach(s => {
-          const sp = document.createElement("span");
-          sp.className = "tok" + (hi === s.i ? " cur" : (hi > s.i ? " played" : ""));
-          sp.id = "tok-" + s.i;
-          const cells = ["--","--","--","--","--","--"];
-          cells[s.n.si] = token(s.n.fret);
-          sp.textContent = cells[si] + "-";
-          line.appendChild(sp);
-        });
-        line.appendChild(document.createTextNode("--"));
-      });
-      line.appendChild(document.createTextNode("|"));
-      return line;
+    const row = document.createElement("div");
+    row.className = "staffrow";
+    const clef = document.createElement("div");
+    clef.className = "tabclef";
+    clef.innerHTML = "T<br>A<br>B";
+    row.appendChild(clef);
+    const staff = document.createElement("div");
+    staff.className = "staff";
+    staff.id = "staff-" + start;
+    const head = document.createElement("div");
+    head.className = "playhead";
+    head.id = "head-" + start;
+    staff.appendChild(head);
+    for (let b = 1; b < nBars; b++) {
+      const ln = document.createElement("div");
+      ln.className = "barline";
+      ln.style.left = (b / nBars * 100) + "%";
+      staff.appendChild(ln);
+    }
+    const end = document.createElement("div");
+    end.className = "barline" + (start + nBars >= barCount ? " dbl" : "");
+    end.style.right = "0";
+    staff.appendChild(end);
+    const t0 = start * bl;
+    const span = nBars * bl;
+    solo.forEach((n, i) => {
+      if (n.t < t0 - 0.01 || n.t >= t0 + span) return;
+      const sp = document.createElement("div");
+      sp.className = "tabnote" + (hi === i ? " cur" : (hi > i ? " played" : ""));
+      sp.id = "tok-" + i;
+      sp.textContent = n.fret;
+      sp.style.left = (((n.t - t0) / span) * 100) + "%";
+      sp.style.top = (n.si * 18 + 1) + "px";
+      staff.appendChild(sp);
     });
-    rows.forEach(r => sys.appendChild(r));
+    row.appendChild(staff);
+    sys.appendChild(row);
     el.appendChild(sys);
   }
 }
@@ -1119,17 +1602,27 @@ function follow(i) {
     tok.classList.add("cur");
     tok.classList.remove("played");
     scrollTabTo(tok);
+    const staff = tok.parentElement;
+    if (staff) {
+      document.querySelectorAll(".playhead.on").forEach(h => h.classList.remove("on"));
+      const head = staff.querySelector(".playhead");
+      if (head) {
+        head.classList.add("on");
+        head.style.left = tok.style.left;
+      }
+    }
   }
   const n = solo[i];
   if (!n) return;
-  if (n.box !== activeBox) {
-    activeBox = n.box;
-    $("boxLab").textContent = "Box " + activeBox;
-    renderBoard();
-  }
+  currentPlay = i;
+  activeBox = n.box;
+  $("boxLab").textContent = "Box " + (n.box || "—");
   document.querySelectorAll(".note.now").forEach(el => el.classList.remove("now"));
   const dot = document.getElementById("n-" + n.si + "-" + n.fret);
-  if (dot) dot.classList.add("now");
+  if (dot) {
+    dot.classList.add("now");
+    dot.classList.remove("off");
+  }
   $("nowline").innerHTML = "<em>Bar " + (n.bar + 1) + " · Box " + n.box + "</em>  —  " +
     STR_LAB[n.si] + " string fret " + n.fret + "  (" + n.name + ")";
 }
@@ -1225,7 +1718,7 @@ function startFollowLoop() {
 
 function playTogether() {
   if (!solo.length) {
-    $("status").textContent = "Load MIDI or tab, or generate a solo first.";
+    $("status").textContent = "Load MIDI or paste tab first.";
     return;
   }
   const player = $("player");
@@ -1243,6 +1736,7 @@ function playTogether() {
   $("status").textContent = "Following " + solo.length + " notes · first at " +
     solo[0].t.toFixed(2) + "s · last at " + solo[solo.length - 1].t.toFixed(2) + "s";
   try { player.currentTime = 0; } catch (e) {}
+  applySpeed();
   const go = player.play();
   startFollowLoop();
   if (go && go.catch) go.catch(() => {
